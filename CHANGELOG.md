@@ -1,6 +1,16 @@
 # Unreleased
 * (bugfix) Retry GitHub server errors in background jobs with polynomial backoff for ten attempts
   (about 4.3 hours plus jitter), retaining error reporting when retries are exhausted.
+* Stacks that set `deploy.group_stacked_pull_requests: true` in `shipit.yml` group the undeployed commits that belong
+  to the same GitHub stacked pull request: the newest one is shown with its deploy button and the earlier ones are
+  nested under it, with a warning when some of them are failing or locked. For those stacks, the pull request stack is
+  fetched from GitHub when a commit is synced (one extra API request per commit) and stored in the new
+  `commits.pull_request_stack_number` column. Install the new migration with
+  `rake shipit:install:migrations db:migrate`.
+* Previous deploys and rollbacks on the stack page can be expanded to list the commits they shipped or reverted,
+  loaded on demand.
+* (bugfix) Previous deploys and rollbacks on the stack page are rendered with their own partial again, so they link to
+  their deploy pages and show their rollback, redeploy and release status controls.
 
 # 0.45.5
 * (bugfix) Update existing check runs without first attempting a duplicate insert. Concurrent

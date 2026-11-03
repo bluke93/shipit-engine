@@ -727,6 +727,15 @@ module Shipit
       assert_predicate @spec, :clear_working_directory?
     end
 
+    test "#group_stacked_pull_requests? returns false by default" do
+      refute_predicate @spec, :group_stacked_pull_requests?
+    end
+
+    test "#group_stacked_pull_requests? can be enabled in the deploy section" do
+      @spec.stubs(:load_config).returns('deploy' => { 'group_stacked_pull_requests' => true })
+      assert_predicate @spec, :group_stacked_pull_requests?
+    end
+
     test 'bundler installs take priority over npm installs' do
       @spec.expects(:discover_package_json).never
       @spec.stubs(:discover_bundler).returns(['fake bundler task']).once

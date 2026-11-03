@@ -55,6 +55,12 @@ module Shipit
         @undeployed_commits,
         next_expected_commit_to_deploy:
       )
+
+      @stacked_commits = Hash.new { |hash, id| hash[id] = [] }
+      return unless @stack.group_stacked_pull_requests?
+
+      @active_commits = group_pull_request_stacks(@active_commits, into: @stacked_commits)
+      @undeployed_commits = group_pull_request_stacks(@undeployed_commits, into: @stacked_commits)
     end
 
     def lookup
@@ -147,6 +153,22 @@ module Shipit
       commits.map.with_index do |c, i|
         index = commits.size - i - 1
         UndeployedCommit.new(c, index:, next_expected_commit_to_deploy:)
+      end
+    end
+
+    # Nests the commits of a GitHub pull request stack under the newest one, since deploying it ships the whole stack.
+    def group_pull_request_stacks(commits, into:)
+      newest_by_stack = {}
+
+      commits.reject do |commit|
+        next false unless commit.pull_request_stack_number
+
+        if (newest = newest_by_stack[commit.pull_request_stack_number])
+          into[newest.id] << commit
+        else
+          newest_by_stack[commit.pull_request_stack_number] = commit
+          false
+        end
       end
     end
 

@@ -1,7 +1,7 @@
 <%- read_only ||= false -%>
 
 <li class="task deploy" id="task-<%= deploy.id %>" data-status="<%= deploy.status %>" data-release-status="<%= deploy.last_release_status.state %>">
-  <% cache deploy do %>
+  <% cache [deploy, read_only] do %>
     <% cache deploy.author do %>
       <%= render 'shipit/shared/author', author: deploy.author %>
     <% end %>
@@ -27,6 +27,12 @@
         <span class="code-deletions">-<%= deploy.deletions %></span>
         <% if deploy.ignored_safeties? %><span class="ignored-safeties">ignoring safeties</span><% end %>
         <% if deploy.aborted_by %><span class="aborted-by">aborted by <%= deploy.aborted_by.login %></span><% end %>
+        <% commits_count = deploy.commits.size %>
+        <% if commits_count > 0 %>
+          <button type="button" class="accordion-toggle accordion-toggle--pill deploy-commits-toggle" aria-expanded="false" aria-controls="deploy-<%= deploy.id %>-commits" data-accordion-toggle data-accordion-src="<%= commits_stack_deploy_path(@stack, deploy) %>">
+            <%= pluralize(commits_count, 'commit') %>
+          </button>
+        <% end %>
       </p>
       <p class="commit-meta">
         <% if read_only %>
@@ -61,4 +67,6 @@
       <% end %>
     </div>
   <% end %>
+
+  <div class="deploy-commits" id="deploy-<%= deploy.id %>-commits" hidden></div>
 </li>

@@ -17,7 +17,9 @@
       </div>
     </header>
     <ul class="commit-list">
-      <%= render partial: 'shipit/commits/commit', collection: @undeployed_commits %>
+      <% @undeployed_commits.each do |commit| %>
+        <%= render partial: 'shipit/commits/commit', locals: { commit:, stacked_commits: @stacked_commits.fetch(commit.id, []) } %>
+      <% end %>
     </ul>
   </section>
 
@@ -26,7 +28,9 @@
       <h2>Currently Deploying Commits</h2>
     </header>
     <ul class="commit-list">
-      <%= render partial: 'shipit/commits/commit', collection: @active_commits %>
+      <% @active_commits.each do |commit| %>
+        <%= render partial: 'shipit/commits/commit', locals: { commit:, stacked_commits: @stacked_commits.fetch(commit.id, []) } %>
+      <% end %>
     </ul>
   </section>
 
@@ -36,7 +40,7 @@
         <h2>Previous Deploys</h2>
       </header>
       <ul class="commit-list">
-        <%= render partial: 'shipit/tasks/task', collection: @tasks %>
+        <%= render partial: @tasks %>
       </ul>
     </section>
   <% end %>

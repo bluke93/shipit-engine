@@ -36,6 +36,7 @@ class PageUpdater
         $(selector).html(newDocument.querySelectorAll("#{selector} > *"))
       for callback in PageUpdater.callbacks
         callback()
+      $(document).trigger('shipit:page-updated')
 
     @updateScheduled = false
 

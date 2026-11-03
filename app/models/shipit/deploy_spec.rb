@@ -103,6 +103,10 @@ module Shipit
       Duration.parse(config('deploy', 'interval') { 0 })
     end
 
+    def group_stacked_pull_requests?
+      config('deploy', 'group_stacked_pull_requests') { false }
+    end
+
     def provisioning_handler_name
       config('provision', 'handler_name')
     end

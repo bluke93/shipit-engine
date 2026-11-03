@@ -13,6 +13,7 @@ module Shipit
   Commit.send(:define_method, :fetch_stats!) {}
   Commit.send(:define_method, :refresh_statuses!) {}
   Commit.send(:define_method, :refresh_check_runs!) {}
+  Commit.send(:define_method, :fetch_pull_request_stack!) {}
   ReleaseStatus.send(:define_method, :create_status_on_github!) {}
   CommitDeployment.send(:define_method, :schedule_create_on_github) {}
   CommitDeploymentStatus.send(:define_method, :schedule_create_on_github) {}

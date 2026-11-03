@@ -119,6 +119,7 @@ Shipit::Engine.routes.draw do
       member do
         get :rollback
         get :revert
+        get :commits
       end
 
       resources :release_statuses, only: %i[create]

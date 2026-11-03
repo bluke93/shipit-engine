@@ -24,6 +24,30 @@ module Shipit
       assert_equal("text/plain", @response.media_type)
     end
 
+    test ":commits renders the commits shipped by the deploy" do
+      get :commits, params: { stack_id: @stack.to_param, id: @deploy.id }
+
+      assert_response :success
+      assert_select '.commit-summary', count: @deploy.commits.size
+      assert_select '.commit-summary__title', text: @deploy.until_commit.title
+    end
+
+    test ":commits lists the commits a rollback reverts, newest first" do
+      rollback = @stack.rollbacks.create!(
+        deploy: @deploy,
+        since_commit: shipit_commits(:fourth),
+        until_commit: shipit_commits(:second),
+        user: @user,
+        status: 'success'
+      )
+
+      get :commits, params: { stack_id: @stack.to_param, id: rollback.id }
+
+      assert_response :success
+      titles = css_select('.commit-summary__title').map { |title| title.text.strip }
+      assert_equal [shipit_commits(:fourth).title, shipit_commits(:third).title], titles
+    end
+
     test ":new is success" do
       get :new, params: { stack_id: @stack.to_param, sha: @commit.sha }
       assert_response :success

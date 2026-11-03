@@ -83,6 +83,86 @@ module Shipit
       assert_response :ok
     end
 
+    test "#show nests the earlier pull requests of a stack under the newest one" do
+      newest, earlier = @stack.undeployed_commits.reject(&:active?).first(2)
+      group_stacked_pull_requests(@stack)
+      [newest, earlier].each { |commit| commit.update!(pull_request_stack_number: 580) }
+
+      get :show, params: { id: @stack.to_param }
+
+      assert_response :ok
+      assert_select "#commit-#{newest.id} .pull-request-stack-toggle[aria-expanded=true]", text: /Stack of 2/
+      assert_select "#commit-#{newest.id} > #pull-request-stack-#{newest.id}:not([hidden]) > #commit-#{earlier.id}"
+      assert_select "section > .commit-list > #commit-#{earlier.id}", count: 0
+    end
+
+    test "#show doesn't group stacked pull requests unless the stack opts in" do
+      newest, earlier = @stack.undeployed_commits.reject(&:active?).first(2)
+      [newest, earlier].each { |commit| commit.update!(pull_request_stack_number: 580) }
+
+      get :show, params: { id: @stack.to_param }
+
+      assert_response :ok
+      assert_select ".pull-request-stack-toggle", count: 0
+      assert_select ".wrapper > section:nth-of-type(1) > .commit-list > #commit-#{earlier.id}"
+    end
+
+    test "#show groups the stacks being deployed" do
+      newest, earlier = @stack.undeployed_commits.first(2)
+      group_stacked_pull_requests(@stack)
+      [newest, earlier].each { |commit| commit.update!(pull_request_stack_number: 580) }
+      running = shipit_tasks(:shipit_running)
+      @stack.tasks.where(status: Task::ACTIVE_STATUSES).where.not(id: running.id).update_all(status: 'success')
+      running.update!(allow_concurrency: false, since_commit_id: @stack.last_deployed_commit.id, until_commit_id: newest.id)
+
+      get :show, params: { id: @stack.to_param }
+
+      assert_response :ok
+      deploying = ".wrapper > section:nth-of-type(2) > .commit-list"
+      assert_select "#{deploying} > #commit-#{newest.id} > #pull-request-stack-#{newest.id}:not([hidden]) > #commit-#{earlier.id}"
+      assert_select ".wrapper > section:nth-of-type(1) #commit-#{newest.id}", count: 0
+      assert_select "section > .commit-list > #commit-#{earlier.id}", count: 0
+    end
+
+    test "#show groups a stack split by an unrelated pull request" do
+      unrelated, oldest = @stack.undeployed_commits.reject(&:active?).first(2)
+      newest = @stack.commits.create!(sha: SecureRandom.hex(20), message: 'Newest', authored_at: Time.now,
+                                      committed_at: Time.now)
+      group_stacked_pull_requests(@stack)
+      [newest, oldest].each { |commit| commit.update!(pull_request_stack_number: 580) }
+
+      get :show, params: { id: @stack.to_param }
+
+      assert_response :ok
+      assert_select "#pull-request-stack-#{newest.id} > #commit-#{oldest.id}"
+      assert_select ".wrapper > section:nth-of-type(1) > .commit-list > #commit-#{unrelated.id}"
+    end
+
+    test "#show warns about failing and locked pull requests hidden in a stack" do
+      newest, earlier = @stack.undeployed_commits.reject(&:active?).first(2)
+      group_stacked_pull_requests(@stack)
+      [newest, earlier].each { |commit| commit.update!(pull_request_stack_number: 580) }
+      earlier.update!(locked: true)
+      earlier.statuses.create!(stack_id: @stack.id, state: 'failure', context: 'ci/travis', description: 'Failed')
+
+      get :show, params: { id: @stack.to_param }
+
+      assert_response :ok
+      assert_select "#commit-#{newest.id} .pull-request-stack-warning", text: '1 failing · 1 locked'
+    end
+
+    test "#show lets previous deploys expand to the commits they shipped" do
+      deploy = shipit_tasks(:shipit)
+
+      get :show, params: { id: @stack.to_param }
+
+      assert_response :ok
+      assert_select "#task-#{deploy.id} .deploy-commits-toggle[aria-controls='deploy-#{deploy.id}-commits']" do |toggle|
+        assert_equal commits_stack_deploy_path(@stack, deploy), toggle.attr('data-accordion-src').value
+      end
+      assert_select "#deploy-#{deploy.id}-commits[hidden]"
+    end
+
     test "#show with faulty and validating deploys is success" do
       get :show, params: { id: shipit_stacks(:shipit_canaries).to_param }
       assert_response :ok
@@ -285,6 +365,13 @@ module Shipit
       }
       assert_response :success
       assert_equal 'Deploy url is invalid', flash[:warning]
+    end
+
+    private
+
+    def group_stacked_pull_requests(stack)
+      config = stack.cached_deploy_spec.config.deep_merge('deploy' => { 'group_stacked_pull_requests' => true })
+      stack.update!(cached_deploy_spec: DeploySpec.new(config))
     end
   end
 end

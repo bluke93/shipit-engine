@@ -319,6 +319,15 @@ deploy:
   retries: 2
 ```
 
+**<code>deploy.group_stacked_pull_requests</code>** groups the undeployed commits that belong to the same [GitHub stacked pull request](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs). The newest commit of each stack is listed with its deploy button, and the earlier ones are nested under it. To find each commit's stack, Shipit makes one extra GitHub API request per new commit. Defaults to `false`.
+
+For example:
+
+```yaml
+deploy:
+  group_stacked_pull_requests: true
+```
+
 **<code>rollback.override</code>** contains an array of the shell commands required to rollback the application to a previous state. Shipit will try to infer it from the repository structure, but you can change the default inference. This key defaults to `disabled` unless Capistrano is detected.
 
 For example:

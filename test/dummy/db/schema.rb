@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_28_141005) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_02_170000) do
   create_table "api_clients", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "creator_id", limit: 4
@@ -75,6 +75,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_28_141005) do
     t.text "message", limit: 65535, null: false
     t.string "pull_request_head_sha", limit: 40
     t.integer "pull_request_number"
+    t.integer "pull_request_stack_number"
     t.string "pull_request_title", limit: 1024
     t.string "sha", limit: 40, null: false
     t.integer "stack_id", limit: 4, null: false

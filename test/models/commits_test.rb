@@ -467,6 +467,71 @@ module Shipit
       end
     end
 
+    test "fetch_pull_request_stack! stores the stack of the merged pull request" do
+      pull_requests = [
+        stub(merged_at: nil, stack: stub(number: 12)),
+        stub(merged_at: 1.hour.ago, stack: stub(number: 580))
+      ]
+      Shipit.github.api.expects(:commit_pulls).with(@stack.github_repo_name, @commit.sha).returns(pull_requests)
+
+      @commit.fetch_pull_request_stack!
+
+      assert_equal 580, @commit.reload.pull_request_stack_number
+    end
+
+    test "fetch_pull_request_stack! clears the stack when the pull request isn't stacked" do
+      @commit.update!(pull_request_stack_number: 580)
+      pull_requests = [stub(merged_at: 1.hour.ago, stack: nil)]
+      Shipit.github.api.expects(:commit_pulls).with(@stack.github_repo_name, @commit.sha).returns(pull_requests)
+
+      @commit.fetch_pull_request_stack!
+
+      assert_nil @commit.reload.pull_request_stack_number
+    end
+
+    test "fetch_pull_request_stack! doesn't fail if no pull request introduced the commit" do
+      Shipit.github.api.expects(:commit_pulls).with(@stack.github_repo_name, @commit.sha).returns([])
+
+      @commit.fetch_pull_request_stack!
+
+      assert_nil @commit.reload.pull_request_stack_number
+    end
+
+    test "fetch_pull_request_stack! looks merge commits up by their pull request number" do
+      commit = shipit_commits(:fourth)
+      Shipit.github.api.expects(:commit_pulls).never
+      Shipit.github.api.expects(:pull_request).with(@stack.github_repo_name, 7).returns(stub(stack: stub(number: 580)))
+
+      commit.fetch_pull_request_stack!
+
+      assert_equal 580, commit.reload.pull_request_stack_number
+    end
+
+    test "fetch_pull_request_stack! doesn't save the commit when its stack didn't change" do
+      Shipit.github.api.expects(:commit_pulls).with(@stack.github_repo_name, @commit.sha).returns([])
+      @commit.expects(:update!).never
+
+      @commit.fetch_pull_request_stack!
+    end
+
+    test "creating a commit schedules fetching its pull request stack when the stack groups stacked pull requests" do
+      config = @stack.cached_deploy_spec.config.deep_merge('deploy' => { 'group_stacked_pull_requests' => true })
+      @stack.update!(cached_deploy_spec: DeploySpec.new(config))
+      @pr.assign_attributes(sha: '2adaad1ad30c235d3a6e7981dfc1742f7ecb1e86', authored_at: Time.now, committed_at: Time.now)
+
+      assert_enqueued_with(job: FetchPullRequestStackJob, args: [@pr]) do
+        @pr.save!
+      end
+    end
+
+    test "creating a commit doesn't fetch its pull request stack by default" do
+      @pr.assign_attributes(sha: '2adaad1ad30c235d3a6e7981dfc1742f7ecb1e86', authored_at: Time.now, committed_at: Time.now)
+
+      assert_no_enqueued_jobs(only: FetchPullRequestStackJob) do
+        @pr.save!
+      end
+    end
+
     test ".by_sha! can match sha prefixes" do
       assert_equal @commit, shipit_stacks(:shipit).commits.by_sha!(@commit.sha[0..7])
     end

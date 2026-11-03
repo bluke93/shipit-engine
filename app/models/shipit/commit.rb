@@ -22,7 +22,7 @@ module Shipit
     after_create { stack.update_undeployed_commits_count }
 
     after_commit :schedule_refresh_statuses!, :schedule_refresh_check_runs!, :schedule_fetch_stats!,
-                 :schedule_continuous_delivery, on: :create
+                 :schedule_fetch_pull_request_stack!, :schedule_continuous_delivery, on: :create
 
     belongs_to :author, class_name: 'User', optional: true, inverse_of: :authored_commits
     belongs_to :committer, class_name: 'User', optional: true, inverse_of: :commits
@@ -299,6 +299,26 @@ module Shipit
         additions: github_commit.stats&.additions,
         deletions: github_commit.stats&.deletions
       )
+    end
+
+    def schedule_fetch_pull_request_stack!
+      FetchPullRequestStackJob.perform_later(self) if stack.group_stacked_pull_requests?
+    end
+
+    # The stack the merged pull request belonged to, if it was part of a GitHub stacked pull request.
+    def fetch_pull_request_stack!
+      stack_number = github_merged_pull_request&.stack&.number
+      update!(pull_request_stack_number: stack_number) unless stack_number == pull_request_stack_number
+    end
+
+    # Merge commits name their pull request. For other commits, GitHub only lists the merged pull request
+    # when the commit is on the default branch.
+    def github_merged_pull_request
+      if pull_request?
+        stack.github_api.pull_request(github_repo_name, pull_request_number)
+      else
+        stack.github_api.commit_pulls(github_repo_name, sha).find(&:merged_at)
+      end
     end
 
     def status

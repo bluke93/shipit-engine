@@ -5,7 +5,7 @@ module Shipit
     include ChunksHelper
 
     before_action :load_stack
-    before_action :load_deploy, only: %i[show rollback revert]
+    before_action :load_deploy, only: %i[show rollback revert commits]
     before_action :load_until_commit, only: :create
     helper_method :short_commit_sha
 
@@ -41,6 +41,11 @@ module Shipit
     def revert
       previous_deploy = @stack.deploys.success.where(until_commit_id: @deploy.since_commit_id).order(id: :desc).first!
       redirect_to(rollback_stack_deploy_path(@stack, previous_deploy))
+    end
+
+    def commits
+      commits = @deploy.commits.reorder(id: :desc).preload(:author, :statuses, :check_runs)
+      render(partial: 'shipit/deploys/summary', locals: { commits: })
     end
 
     def short_commit_sha(task)
